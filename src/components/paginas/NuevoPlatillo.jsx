@@ -1,7 +1,18 @@
+import { FirebaseContext } from "@/firebase";
 import { useFormik } from "formik";
+import { useContext, useState } from "react";
+import { useNavigate } from "react-router";
 import * as Yup from "yup";
+import FileUploader from "react-firebase-file-uploader";
 
 const NuevoPlatillo = () => {
+  const { firebase } = useContext(FirebaseContext);
+  const [subiendo, setSubiendo] = useState(false);
+  const [progreso, setProgreso] = useState(0);
+  const [urlImagen, setUrlImagen] = useState("");
+
+  const navigate = useNavigate();
+
   const formik = useFormik({
     initialValues: {
       nombre: "",
@@ -22,10 +33,61 @@ const NuevoPlatillo = () => {
         .min(10, "La descripción debe ser más larga")
         .required("La descripción es obligatorio"),
     }),
-    onSubmit: (datos) => {
-      console.log(datos);
+    /* 
+     onSubmit: (platillo) => {
+      const id = uuidv4().toString();
+
+      try {
+        platillo.existencia = true;
+        platillo.imagen = urlImagen;
+        firebase.database.ref(`productos/${id}`).set(platillo);
+
+        navigate("/menu");
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    */
+    onSubmit: (platillo) => {
+      try {
+        platillo.existencia = true;
+        platillo.imagen = urlImagen;
+        firebase.db.collection("productos").add(platillo);
+
+        navigate("/menu");
+      } catch (error) {
+        console.log(error);
+      }
     },
   });
+
+  const handleUploadStart = () => {
+    setProgreso(0);
+    setSubiendo(true);
+  };
+
+  const handleUploadError = (error) => {
+    setSubiendo(false);
+    console.log(error);
+  };
+
+  const handleUploadSuccess = async (nombre) => {
+    setProgreso(100);
+    setSubiendo(false);
+
+    const url = await firebase.storage
+      .ref("productos")
+      .child(nombre)
+      .getDownloadURL();
+
+    console.log(url);
+    setUrlImagen(url);
+  };
+
+  const handleProgress = (progreso) => {
+    setProgreso(progreso);
+    console.log(progreso);
+  };
 
   return (
     <>
@@ -91,24 +153,24 @@ const NuevoPlatillo = () => {
                 className="block text-gray-700 text-sm font-bold mb-2"
                 htmlFor="categoria"
               >
-                <select
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                  id="categoria"
-                  name="categoria"
-                  value={formik.values.categoria}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                >
-                  <option value="">--Seleccione--</option>
-                  <option value="desayuno">Desayuno</option>
-                  <option value="comida">Comida</option>
-                  <option value="cena">Cena</option>
-                  <option value="bebida">Bebida</option>
-                  <option value="postre">Postre</option>
-                  <option value="ensaladas">Ensaladas</option>
-                </select>
                 Categoría
               </label>
+              <select
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                id="categoria"
+                name="categoria"
+                value={formik.values.categoria}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+              >
+                <option value="">--Seleccione--</option>
+                <option value="desayuno">Desayuno</option>
+                <option value="comida">Comida</option>
+                <option value="cena">Cena</option>
+                <option value="bebida">Bebida</option>
+                <option value="postre">Postre</option>
+                <option value="ensaladas">Ensaladas</option>
+              </select>
             </div>
             {formik.touched.categoria && formik.errors.categoria ? (
               <div
@@ -126,15 +188,33 @@ const NuevoPlatillo = () => {
               >
                 Imagen
               </label>
-              <input
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              <FileUploader
+                accept="image/*"
                 id="imagen"
-                type="file"
-                value={formik.values.imagen}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
+                name="imagen"
+                randomizeFilename
+                storageRef={firebase.storage.ref("productos")}
+                onUploadStart={handleUploadStart}
+                onUploadError={handleUploadError}
+                onUploadSuccess={handleUploadSuccess}
+                onProgress={handleProgress}
               />
             </div>
+            {subiendo && (
+              <div className="h-12 relative w-full border">
+                <div
+                  className="bg-green-500 absolute left-0 top-0 text-white px-2 text-sm h-12 flex items-center"
+                  style={{ width: `${progreso}%` }}
+                >
+                  {progreso} %
+                </div>
+              </div>
+            )}
+            {urlImagen && (
+              <p className="bg-green-500 text-white p-3 text-center my-5">
+                La imagen se subió correctamente
+              </p>
+            )}
             <div className="mb-4">
               <label
                 className="block text-gray-700 text-sm font-bold mb-2"
